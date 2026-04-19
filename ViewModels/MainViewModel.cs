@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WangyiMCHelper;
 
 namespace WangyiMCHelper.ViewModels;
 
@@ -62,7 +63,7 @@ public enum SortMode
 /// </summary>
 public partial class MainViewModel : ObservableObject
 {
-    private readonly Services.WorldService _worldService = new();
+    private readonly WorldService _worldService = new();
 
     [ObservableProperty]
     private ObservableCollection<WorldItem> _worlds = new();
