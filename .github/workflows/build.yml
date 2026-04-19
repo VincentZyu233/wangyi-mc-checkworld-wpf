@@ -82,34 +82,11 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Cache NuGet packages
-        if: needs.check.outputs.clear_cache != 'true'
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Cache build outputs
-        if: needs.check.outputs.clear_cache != 'true'
-        uses: actions/cache@v4
-        with:
-          path: bin/obj
-          key: ${{ runner.os }}-dotnet-build-${{ hashFiles('**/*.csproj') }}-${{ hashFiles('**/*.xaml') }}
-          restore-keys: |
-            ${{ runner.os }}-dotnet-build-${{ hashFiles('**/*.csproj') }}-
-            ${{ runner.os }}-dotnet-build-
-
-      - name: Clear cache notice
-        if: needs.check.outputs.clear_cache == 'true'
-        run: echo "🧹 Building without cache (--clear flag detected)"
-
       - name: Restore NuGet packages
         run: dotnet restore
 
       - name: Build Release
-        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishReadyToRun=true -p:PublishTrimmed=false -p:DebugType=None -p:DebugSymbols=false
 
       - name: Prepare release package
         shell: bash
@@ -118,7 +95,7 @@ jobs:
           mkdir -p release
           
           # Copy exe with version name
-          cp bin/Release/net8.0/win-x64/publish/WangyiMCHelper.exe release/WangyiMCHelper-v${VERSION}-windows-x64.exe
+          cp bin/Release/net48/win-x64/publish/WangyiMCHelper.exe release/WangyiMCHelper-v${VERSION}-windows-x64.exe
           
           # Copy README if exists
           cp README.md release/ 2>/dev/null || echo "No README.md"
