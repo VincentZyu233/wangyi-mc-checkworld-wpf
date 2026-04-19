@@ -2,11 +2,14 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using WangyiMCHelper.ViewModels;
 
 namespace WangyiMCHelper;
 
 public partial class MainWindow : Window
 {
+    private readonly WorldService _worldService = new();
+
     public MainWindow()
     {
         InitializeComponent();
@@ -14,7 +17,7 @@ public partial class MainWindow : Window
 
     private void OpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        var path = WorldService.GetWorldsDirectory();
+        var path = _worldService.GetWorldsDirectory();
         if (Directory.Exists(path))
         {
             Process.Start("explorer.exe", path);
@@ -23,51 +26,63 @@ public partial class MainWindow : Window
 
     private void SortTimeDesc_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.MainViewModel vm)
+        if (DataContext is MainViewModel vm)
         {
-            vm.SortBy = "Time";
-            vm.SortDescending = true;
+            vm.CurrentSort = SortMode.TimeDesc;
             vm.RefreshCommand.Execute(null);
         }
     }
 
     private void SortNameAsc_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.MainViewModel vm)
+        if (DataContext is MainViewModel vm)
         {
-            vm.SortBy = "Name";
-            vm.SortDescending = false;
+            vm.CurrentSort = SortMode.NameAsc;
             vm.RefreshCommand.Execute(null);
         }
     }
 
     private void SortSizeDesc_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is ViewModels.MainViewModel vm)
+        if (DataContext is MainViewModel vm)
         {
-            vm.SortBy = "Size";
-            vm.SortDescending = true;
+            vm.CurrentSort = SortMode.SizeDesc;
             vm.RefreshCommand.Execute(null);
         }
     }
 
     private void OpenWorldFolder_Click(object sender, RoutedEventArgs e)
     {
-        // 实现打开单个存档文件夹
+        if (DataContext is MainViewModel vm && vm.SelectedWorld != null)
+        {
+            var path = vm.SelectedWorld.Folder;
+            if (Directory.Exists(path))
+            {
+                Process.Start("explorer.exe", path);
+            }
+        }
     }
 
     private void BackupWorld_Click(object sender, RoutedEventArgs e)
     {
-        // 实现备份存档
+        if (DataContext is MainViewModel vm && vm.SelectedWorld != null)
+        {
+            _worldService.BackupWorld(vm.SelectedWorld.Folder);
+            vm.RefreshCommand.Execute(null);
+        }
     }
 
     private void RenameWorld_Click(object sender, RoutedEventArgs e)
     {
-        // 实现重命名存档
+        // TODO: 实现重命名
     }
 
     private void DeleteWorld_Click(object sender, RoutedEventArgs e)
     {
-        // 实现删除存档
+        if (DataContext is MainViewModel vm && vm.SelectedWorld != null)
+        {
+            _worldService.DeleteWorld(vm.SelectedWorld.Folder);
+            vm.RefreshCommand.Execute(null);
+        }
     }
 }
