@@ -108,6 +108,11 @@ public partial class MainViewModel : ObservableObject
         ApplyFilter();
     }
 
+    partial void OnSelectedWorldChanged(WorldItem? value)
+    {
+        // Can add selection changed logic here if needed
+    }
+
     public void LoadWorlds()
     {
         try

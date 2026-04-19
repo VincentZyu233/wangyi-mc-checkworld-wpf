@@ -1,8 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 
 namespace WangyiMCHelper;
 
@@ -11,16 +10,16 @@ namespace WangyiMCHelper;
 /// </summary>
 public class WorldInfo
 {
-    [JsonPropertyName("folder")]
+    [JsonProperty("folder")]
     public string Folder { get; set; } = string.Empty;
 
-    [JsonPropertyName("name")]
+    [JsonProperty("name")]
     public string Name { get; set; } = string.Empty;
 
-    [JsonPropertyName("lastSaved")]
+    [JsonProperty("lastSaved")]
     public DateTime? LastSaved { get; set; }
 
-    [JsonPropertyName("size")]
+    [JsonProperty("size")]
     public long Size { get; set; }
 
     [JsonIgnore]
