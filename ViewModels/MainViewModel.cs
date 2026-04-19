@@ -151,8 +151,8 @@ public partial class MainViewModel : ObservableObject
         var filtered = string.IsNullOrWhiteSpace(SearchText)
             ? Worlds.AsEnumerable()
             : Worlds.Where(w =>
-                w.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) ||
-                w.Folder.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+                w.Name.IndexOf(SearchText, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                w.Folder.IndexOf(SearchText, StringComparison.OrdinalIgnoreCase) >= 0);
 
         // 应用排序
         filtered = CurrentSort switch
