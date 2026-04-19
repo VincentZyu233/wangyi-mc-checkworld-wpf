@@ -1,0 +1,177 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── 1. Check: 解析 commit message ─────────────────────────────
+  check:
+    name: Check triggers
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      should_release: ${{ steps.check.outputs.should_release }}
+      clear_cache: ${{ steps.check.outputs.clear_cache }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version from csproj
+        id: version
+        run: |
+          VERSION=$(grep -oP '<Version>\K[^<]+' WangyiMCHelper.csproj || echo "1.0.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+
+      - name: Check commit message for triggers
+        id: check
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "Commit message: $COMMIT_MSG"
+          
+          # PR always builds
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "clear_cache=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # build release = 构建 + Release
+          if echo "$COMMIT_MSG" | grep -qi "build release"; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          # build action = 仅构建
+          elif echo "$COMMIT_MSG" | grep -qi "build action"; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # --clear = 清除缓存
+          if echo "$COMMIT_MSG" | grep -qi "\-\-clear"; then
+            echo "clear_cache=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Cache will be cleared for this build"
+          else
+            echo "clear_cache=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ── 2. Build: 构建应用 ─────────────────────────────────────
+  build:
+    name: Build Windows x64
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet packages
+        if: needs.check.outputs.clear_cache != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Cache build outputs
+        if: needs.check.outputs.clear_cache != 'true'
+        uses: actions/cache@v4
+        with:
+          path: bin/obj
+          key: ${{ runner.os }}-dotnet-build-${{ hashFiles('**/*.csproj') }}-${{ hashFiles('**/*.xaml') }}
+          restore-keys: |
+            ${{ runner.os }}-dotnet-build-${{ hashFiles('**/*.csproj') }}-
+            ${{ runner.os }}-dotnet-build-
+
+      - name: Clear cache notice
+        if: needs.check.outputs.clear_cache == 'true'
+        run: echo "🧹 Building without cache (--clear flag detected)"
+
+      - name: Restore NuGet packages
+        run: dotnet restore
+
+      - name: Build Release
+        run: dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Prepare release package
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          mkdir -p release
+          
+          # Copy exe with version name
+          cp bin/Release/net8.0/win-x64/publish/WangyiMCHelper.exe release/WangyiMCHelper-v${VERSION}-windows-x64.exe
+          
+          # Copy README if exists
+          cp README.md release/ 2>/dev/null || echo "No README.md"
+
+      - name: Upload exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WangyiMCHelper-v${{ needs.check.outputs.version }}-windows-x64
+          path: release/*.exe
+
+  # ── 3. Release: 发布 GitHub Release ─────────────────────────
+  release:
+    name: Publish Release
+    needs: [check, build]
+    if: needs.check.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded files
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.check.outputs.version }}
+          name: Release v${{ needs.check.outputs.version }}
+          body: |
+            ## 网易MC存档管理器 v${{ needs.check.outputs.version }}
+            
+            ### 📦 下载说明
+            - **exe**: 便携版，直接运行 `WangyiMCHelper-v${{ needs.check.outputs.version }}-windows-x64.exe` 即可
+            
+            ### ✨ 功能
+            - 📂 列出所有网易 MC 存档
+            - 🔍 搜索和排序存档
+            - 💾 备份存档
+            - ✏️ 重命名存档
+            - 🗑️ 安全删除存档（自动备份）
+            - 📂 打开存档文件夹
+            
+            ### 🖥️ 系统要求
+            - Windows 10/11 x64 (仅支持 64 位)
+            - 已安装网易我的世界电脑版
+            
+            ### 📝 更新日志
+            - 初始版本发布
+          files: |
+            artifacts/WangyiMCHelper-v${{ needs.check.outputs.version }}-windows-x64/*.exe
